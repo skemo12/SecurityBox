@@ -26,6 +26,21 @@
 
 #define NOT_DIGIT_KEY '!'
 #define NOT_DIGIT "!"
+
+ enum lcdState {LCD_STATE_ENTER_CODE,
+ LCD_STATE_WRONG_CODE,
+ LCD_STATE_CORRECT_CODE,
+ LCD_STATE_CLOSE_BOX,
+ LCD_STATE_CHANGING_CODE,
+ LCD_STATE_OLD_CODE,
+ LCD_STATE_OLD_CORRECT,
+ LCD_STATE_NEW_CODE,
+ LCD_STATE_CODE_CHANGED,
+ LCD_STATE_OLD_CODE_WRONG,
+ LCD_STATE_CODE_RESSETTED,
+ LCD_STATE_DIGITS_ONLY
+ };
+
 LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLS, LCD_ROW);
 
 
@@ -155,6 +170,10 @@ void setup() {
   EICRA |= (1 << ISC00);
   EIMSK |= (1 << INT0);
   sei();
+
+  lcd.clear();
+  lcd.print("Hello!");
+  delay(STANDARD_PRINT_DELAY);
 }
 
 void lcdPrintText(uint8_t newState) {
@@ -163,7 +182,7 @@ void lcdPrintText(uint8_t newState) {
     return;
   }
 
-  // On clear * dissapears
+  // On clear stars dissapears
   hasStars = false;
 
   lcdState = newState;
@@ -171,7 +190,7 @@ void lcdPrintText(uint8_t newState) {
   switch (newState) {
     case 0:
       lcd.clear();
-      lcd.print("Enter key code");
+      lcd.print("Enter key code:");
       break;
     case 1:
       lcd.clear();
@@ -191,7 +210,7 @@ void lcdPrintText(uint8_t newState) {
       break;
     case 5:
       lcd.clear();
-      lcd.print("Enter old code!");
+      lcd.print("Enter old code:");
       break;
     case 6:
       lcd.clear();
@@ -199,7 +218,7 @@ void lcdPrintText(uint8_t newState) {
       break;
     case 7:
       lcd.clear();
-      lcd.print("Enter new code!");
+      lcd.print("Enter new code:");
       break;
     case 8:
       lcd.clear();
@@ -301,12 +320,7 @@ void loop() {
 
     lcdPrintText(5);
     getCode();
-    if(!checkCode(code))
-    {
-      lcdPrintText(11);
-      delay(STANDARD_PRINT_DELAY);
-      return;
-    }
+
     if (strcmp(code, RELOAD_CODE) == 0) {
       lcdState = -1;
       return;
@@ -345,13 +359,7 @@ void loop() {
     }
     return;
   }
-
-  if(!checkCode(code))
-  {
-    lcdPrintText(11);
-    delay(STANDARD_PRINT_DELAY);
-    return;
-  } 
+ 
   uint32_t curr = hash(code);
   if (codeHash == curr) {
     lcdPrintText(2);
