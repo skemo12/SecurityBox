@@ -31,8 +31,8 @@
 #define STANDARD_PRINT_DELAY 2000
 #define SOUND_PRINT_DELAY 1200
 
-/* Piezo Buzzer pin and notes to be played */
-#define PIEZO 9
+/* BUZZER Buzzer pin and notes to be played */
+#define BUZZER 9
 #define NOTE_E6 1319
 #define NOTE_B5 988
 #define NOTE_B4 494
@@ -55,7 +55,7 @@ enum lcdState
 	LCD_STATE_OLD_CODE_WRONG,
 	LCD_STATE_CODE_RESET,
 	LCD_STATE_DIGITS_ONLY,
-  LCD_STATE_TRY_AGAIN
+	LCD_STATE_TRY_AGAIN
 };
 
 /* Declare LCD */
@@ -216,7 +216,6 @@ void setup()
 	lcd.clear();
 	lcd.print("Hello!");
 	delay(STANDARD_PRINT_DELAY);
-
 }
 
 /* Prints text to LCD by state */
@@ -286,12 +285,12 @@ void lcdPrintText(uint8_t newState)
 		lcd.print("contain digits!");
 		lcd.setCursor(0, 0);
 		break;
-  case LCD_STATE_TRY_AGAIN:
-    lcd.clear();
-    lcd.print("Try again in:");
-    lcd.setCursor(5, 1);
-    lcd.print("seconds");
-    break;
+	case LCD_STATE_TRY_AGAIN:
+		lcd.clear();
+		lcd.print("Try again in:");
+		lcd.setCursor(5, 1);
+		lcd.print("seconds");
+		break;
 	default:
 		lcd.clear();
 		lcd.print("Error");
@@ -311,8 +310,8 @@ bool resetCode()
 	/* Only reset once */
 	resetValue = 0;
 
-  /* Reset number of tries as well */  
-  noOfTries = DEFAULT_NO_TRIES;  
+	/* Reset number of tries as well */
+	noOfTries = DEFAULT_NO_TRIES;
 
 	/* Save default password hash to file */
 	File passFile = SD.open(PASS_FILE, FILE_WRITE | O_TRUNC);
@@ -379,75 +378,88 @@ void getCode()
 /* Plays sound on wrong code */
 void playWrongSound()
 {
-  tone(PIEZO,NOTE_B4,200);
-  delay(500);
-  tone(PIEZO,NOTE_B4,200);
-  delay(200);
+	tone(BUZZER, NOTE_B4, 200);
+	delay(500);
+	tone(BUZZER, NOTE_B4, 200);
+	delay(200);
 }
 
 /* Plays sound on correct code */
 void playCorrectSound()
 {
-  tone(9,NOTE_B5,100);
-  delay(100);
-  tone(9,NOTE_E6,850);
-  delay(700);
-  noTone(9);
+	tone(9, NOTE_B5, 100);
+	delay(100);
+	tone(9, NOTE_E6, 850);
+	delay(700);
+	noTone(9);
 }
 
 /* Functions that changes the code lock */
 void changeCode()
 {
+	/* Inform user about command*/
 	lcdPrintText(LCD_STATE_CHANGING_CODE);
 	delay(STANDARD_PRINT_DELAY);
 
+	/* Get old code for security checks */
 	lcdPrintText(LCD_STATE_OLD_CODE);
 	getCode();
 
+	/* If the user canceled the command return */
 	if (strcmp(code, RELOAD_CODE) == 0)
 	{
 		lcdState = -1;
 		return;
 	}
+	/* Check if introduced code's hash matches the password's hash */
 	uint32_t curr = hash(code);
 	if (codeHash == curr)
 	{
-    noOfTries = DEFAULT_NO_TRIES;
+		/* Reset number of tries because code is correct */
+		noOfTries = DEFAULT_NO_TRIES;
 		lcdPrintText(LCD_STATE_OLD_CORRECT);
 		playCorrectSound();
 		delay(SOUND_PRINT_DELAY);
 
+		/* Get new code desired by user */
 		lcdPrintText(LCD_STATE_NEW_CODE);
 		getCode();
+
+		/* Check that code only contains digits */
 		if (!checkCode(code))
 		{
 			lcdPrintText(LCD_STATE_DIGITS_ONLY);
-      playWrongSound();
-		  delay(SOUND_PRINT_DELAY);
+			playWrongSound();
+			delay(SOUND_PRINT_DELAY);
 			return;
 		}
-		curr = hash(code);
 
+		/* Check if user canceled command */
 		if (strcmp(code, RELOAD_CODE) == 0)
 		{
 			lcdState = -1;
 			return;
 		}
+
+		/* Save new password */
+		curr = hash(code);
 		codeHash = curr;
 		File passFile = SD.open(PASS_FILE, FILE_WRITE | O_TRUNC);
 		passFile.print(codeHash);
 		passFile.close();
 
+		/* Inform user that action was completed successfully */
 		lcdPrintText(LCD_STATE_CODE_CHANGED);
-    playCorrectSound();
+		playCorrectSound();
 		delay(SOUND_PRINT_DELAY);
-    return;
+		return;
 	}
-	
-  noOfTries -= 1;
-  lcdPrintText(LCD_STATE_OLD_CODE_WRONG);
-  playWrongSound();
-  delay(SOUND_PRINT_DELAY);
+
+	/* If we get here, the code introduce was wrong */
+	noOfTries -= 1;
+	lcdPrintText(LCD_STATE_OLD_CODE_WRONG);
+	playWrongSound();
+	delay(SOUND_PRINT_DELAY);
 
 	return;
 }
@@ -458,7 +470,7 @@ void openBox()
 	/* Print correct code */
 	lcdPrintText(LCD_STATE_CORRECT_CODE);
 	servoLock.write(OPEN);
-  playCorrectSound();
+	playCorrectSound();
 	delay(SOUND_PRINT_DELAY);
 
 	/* Ask the user to close the box and wait for it to happen */
@@ -474,22 +486,28 @@ void openBox()
 /* Functions that display the number of seconds until user can try again */
 void tryAgain()
 {
-  if (resetCode())
-  {
-    return;
-  }
-  lcdPrintText(LCD_STATE_TRY_AGAIN);
-  for(int8_t i = 9; i >= 0; i--)
-  {
-    if (resetCode())
-    {
-      return;
-    }
-    lcd.setCursor(3, 1);
-    lcd.print(i);
-    delay(1000);
-  }
-  noOfTries = DEFAULT_NO_TRIES;
+	/* Check for reset */
+	if (resetCode())
+	{
+		return;
+	}
+
+	/* Inform users that he has tried to many times */
+	lcdPrintText(LCD_STATE_TRY_AGAIN);
+	for (int8_t i = 9; i >= 0; i--)
+	{
+		/* Check for reset */
+		if (resetCode())
+		{
+			return;
+		}
+		lcd.setCursor(3, 1);
+		lcd.print(i);
+		delay(1000);
+	}
+
+	/* Reset number of tries */
+	noOfTries = DEFAULT_NO_TRIES;
 }
 /* Main loop */
 void loop()
@@ -500,11 +518,13 @@ void loop()
 		return;
 	}
 
-  if (noOfTries == 0)
-  {
-    tryAgain();
-    return;    
-  }
+	/* Check if user wasted all his tries */
+	if (noOfTries == 0)
+	{
+		tryAgain();
+		return;
+	}
+
 	/* Wait for input */
 	lcdPrintText(LCD_STATE_ENTER_CODE);
 	getCode();
@@ -526,13 +546,13 @@ void loop()
 	if (codeHash == curr)
 	{
 		openBox();
-    noOfTries = DEFAULT_NO_TRIES;
+		noOfTries = DEFAULT_NO_TRIES;
 		return;
 	}
 
 	/* If we get to this point, it means that the code was wrong */
-  noOfTries -= 1;
+	noOfTries -= 1;
 	lcdPrintText(LCD_STATE_WRONG_CODE);
-  playWrongSound();
+	playWrongSound();
 	delay(SOUND_PRINT_DELAY);
 }
