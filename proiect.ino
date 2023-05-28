@@ -17,7 +17,8 @@
 #define OPEN 180
 
 /* Code pin constants */
-#define PASS_FILE "password.txt"
+#define PASS_FILE "PASS.txt"
+#define SD_CS 10
 #define CODE_LEN 4
 #define DEFAULT_CODE "0000"
 #define CHANGE_CODE "*00*"
@@ -138,6 +139,14 @@ uint32_t readHashFromFile()
 	number[len] = '\0';
 
 	uint32_t hashVal = strtoul(number, NULL, 10);
+	if (hashVal == 0)
+	{
+		File passFile = SD.open(PASS_FILE, FILE_WRITE | O_TRUNC);
+		passFile.print(defaultCodeHash);
+		passFile.flush();
+		passFile.close();
+		return defaultCodeHash;
+	}
 	return hashVal;
 }
 
@@ -171,11 +180,14 @@ void setup()
 	defaultCodeHash = hash(DEFAULT_CODE);
 
 	/* Begin SPI with SDcard */
-	if (!SD.begin(10))
+	if (!SD.begin(SD_CS))
 	{
 		Serial.println("Init SD failed");
 	}
-	Serial.println("Init SD done");
+	else
+	{
+		Serial.println("Init SD done");
+	}
 
 	/* If PASS_FILE, then create it and store default code, else read old one */
 	if (SD.exists(PASS_FILE))
@@ -187,11 +199,12 @@ void setup()
 		File passFile = SD.open(PASS_FILE, FILE_WRITE | O_TRUNC);
 		codeHash = defaultCodeHash;
 		passFile.print(defaultCodeHash);
+		passFile.flush();
 		passFile.close();
 	}
 
 	/* Connect and init servo */
-	Serial.println("Connect to servo, set pos");
+	Serial.println("Init servo, set pos");
 	servoLock.attach(3);
 	servoLock.write(CLOSE);
 
@@ -202,7 +215,7 @@ void setup()
 	lcd.setCursor(0, 0);
 
 	/* Set the button and hall sensors as inputs */
-	Serial.println("Init pins, interrupts");
+	Serial.println("Init pins, intr");
 	pinMode(2, INPUT_PULLUP);
 	pinMode(A1, INPUT);
 
@@ -230,8 +243,6 @@ void lcdPrintText(uint8_t newState)
 	/* Change state to new one */
 	lcdState = newState;
 
-	/* Change LCD text */
-	Serial.println("Changing LCD");
 	switch (newState)
 	{
 	case LCD_STATE_ENTER_CODE:
@@ -293,7 +304,7 @@ void lcdPrintText(uint8_t newState)
 		break;
 	default:
 		lcd.clear();
-		lcd.print("Error");
+		lcd.print("Err");
 		break;
 	}
 }
@@ -316,7 +327,8 @@ bool resetCode()
 	/* Save default password hash to file */
 	File passFile = SD.open(PASS_FILE, FILE_WRITE | O_TRUNC);
 	codeHash = defaultCodeHash;
-	passFile.print(codeHash);
+	passFile.print(defaultCodeHash);
+	passFile.flush();
 	passFile.close();
 
 	/* Print that password was reset */
@@ -446,6 +458,7 @@ void changeCode()
 		codeHash = curr;
 		File passFile = SD.open(PASS_FILE, FILE_WRITE | O_TRUNC);
 		passFile.print(codeHash);
+		passFile.flush();
 		passFile.close();
 
 		/* Inform user that action was completed successfully */
